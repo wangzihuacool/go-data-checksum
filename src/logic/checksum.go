@@ -1,3 +1,7 @@
+/*
+@Author: wangzihuacool
+@Date: 2022-08-28
+*/
 
 package logic
 
@@ -25,11 +29,10 @@ type ChecksumContext struct {
 
 func NewChecksumContext(context *BaseContext, perTableContext *TableContext) *ChecksumContext {
 	return &ChecksumContext{
-		Context:                    context,
-		PerTableContext:            perTableContext,
+		Context:         context,
+		PerTableContext: perTableContext,
 	}
 }
-
 
 // GetIteration 获取当前核对批次
 func (this *ChecksumContext) GetIteration() int64 {
@@ -40,7 +43,6 @@ func (this *ChecksumContext) GetIteration() int64 {
 func (this *ChecksumContext) GetChunkSize() int64 {
 	return atomic.LoadInt64(&this.Context.ChunkSize)
 }
-
 
 // GetCheckColumns investigates a table and returns the list of columns candidate for calculating checksum. default all columns.
 func (this *ChecksumContext) GetCheckColumns() (err error) {
@@ -64,7 +66,7 @@ func (this *ChecksumContext) GetCheckColumns() (err error) {
 			return err
 		}
 		defer trx.Rollback()
-        groupConcatMaxLength := 10240
+		groupConcatMaxLength := 10240
 		sessionQuery := fmt.Sprintf(`SET SESSION group_concat_max_len = %d`, groupConcatMaxLength)
 		if _, err := trx.Exec(sessionQuery); err != nil {
 			return err
@@ -84,7 +86,6 @@ func (this *ChecksumContext) GetCheckColumns() (err error) {
 	}()
 	return nil
 }
-
 
 // GetUniqueKeys investigates a table and returns the list of unique keys
 // candidate for chunking
@@ -145,18 +146,18 @@ func (this *ChecksumContext) GetUniqueKeys() (err error) {
     limit 1
   `
 
-	var indexName             string
-	var firstColumnName       string
-	var columnNames           string
-	var countColumninIndex    int
-	var dataType              string
-	var characterSetName      string
-	var hasNullable           bool
+	var indexName string
+	var firstColumnName string
+	var columnNames string
+	var countColumninIndex int
+	var dataType string
+	var characterSetName string
+	var hasNullable bool
 
 	if err := this.Context.SourceDB.QueryRow(query, this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName, this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName).Scan(&indexName, &firstColumnName, &columnNames, &countColumninIndex, &dataType, &characterSetName, &hasNullable); err != nil {
 		return fmt.Errorf("critical: table %s.%s get uniqueKey failed", this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName)
 	}
-    // fmt.Printf("%s, %s, %s, %d, %s, %s, %t\n", indexName, firstColumnName, columnNames, countColumninIndex, dataType, characterSetName, hasNullable)
+	// fmt.Printf("%s, %s, %s, %d, %s, %s, %t\n", indexName, firstColumnName, columnNames, countColumninIndex, dataType, characterSetName, hasNullable)
 	if hasNullable {
 		return fmt.Errorf("critical: table %s.%s got an uniqueKey with null values", this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName)
 	}
@@ -164,7 +165,6 @@ func (this *ChecksumContext) GetUniqueKeys() (err error) {
 	this.UniqueKey = ParseColumnList(columnNames)
 	return nil
 }
-
 
 // ReadUniqueKeyRangeMinValues returns the minimum values to be iterated on checksum
 func (this *ChecksumContext) ReadUniqueKeyRangeMinValues() (err error) {
@@ -211,7 +211,6 @@ func (this *ChecksumContext) ReadUniqueKeyRangeMaxValues() (err error) {
 	this.Context.Log.Debugf("Debug: UniqueKey max values: [%s] of source table: %s.%s", this.UniqueKeyRangeMaxValues, this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName)
 	return err
 }
-
 
 // CalculateNextIterationRangeEndValues 计算下一批次核对的起始值
 func (this *ChecksumContext) CalculateNextIterationRangeEndValues() (hasFurtherRange bool, err error) {
@@ -272,7 +271,6 @@ func (this *ChecksumContext) CalculateNextIterationRangeEndValues() (hasFurtherR
 	return hasFurtherRange, nil
 }
 
-
 // IterationQueryChecksum issues a chunk-Checksum query on the table.
 // 1. 批次核对：单个批次内聚合结果CRC32值按位异或结果，计算方式：COALESCE(LOWER(CONV(BIT_XOR(cast(crc32(CONCAT_WS('#',C1,C2,C3,Cn)) as UNSIGNED)), 10, 16)), 0)
 // 2. 记录级核对：单个批次内每条记录的CRC32值，判断源端的CRC32是不是目标端的CRC32的子集，计算方式: COALESCE(LOWER(CONV(cast(crc32(CONCAT_WS('#',id, ftime, c1, c2)) as UNSIGNED), 10, 16)), 0)
@@ -320,10 +318,10 @@ func (this ChecksumContext) IterationQueryChecksum() (isChunkChecksumEqual bool,
 	// 判断元素是否在slice中
 	ElementInSliceFunc := func(inSlice []string, element string) bool {
 		for _, e := range inSlice {
-		    if e == element {
-		        return true
-	        }
-	    }
+			if e == element {
+				return true
+			}
+		}
 		return false
 	}
 
@@ -350,7 +348,7 @@ func (this ChecksumContext) IterationQueryChecksum() (isChunkChecksumEqual bool,
 		return true, duration, nil
 	} else if checkLevel == 2 {
 		for _, v := range sourceResult {
-		    if isInTarget := ElementInSliceFunc(targetResult, v); isInTarget == false {
+			if isInTarget := ElementInSliceFunc(targetResult, v); isInTarget == false {
 				return false, duration, nil
 			}
 		}
@@ -359,7 +357,6 @@ func (this ChecksumContext) IterationQueryChecksum() (isChunkChecksumEqual bool,
 	return false, duration, nil
 }
 
-
 // DataChecksumByCount 比较源表和目标表的总记录数，如果IsSuperSetAsEqual为false则只有记录数相等才认为核平，否则源表记录数少于等于目标表则认为核平，返回是否核平以及是否需要继续核对
 func (this *ChecksumContext) DataChecksumByCount() (isTableCountEqual bool, isMoreCheckNeeded bool, err error) {
 	SourceQueryTableCount := fmt.Sprintf("select /* dataChecksum */ count(*) from %s.%s", EscapeName(this.PerTableContext.SourceDatabaseName), EscapeName(this.PerTableContext.SourceTableName))
@@ -367,7 +364,7 @@ func (this *ChecksumContext) DataChecksumByCount() (isTableCountEqual bool, isMo
 	var sourceRowCount int64
 	var targetRowCount int64
 	if err = this.Context.SourceDB.QueryRow(SourceQueryTableCount).Scan(&sourceRowCount); err != nil {
-	    return false, false, fmt.Errorf("critical: Table %s.%s query sourceRowCount failed", this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName)
+		return false, false, fmt.Errorf("critical: Table %s.%s query sourceRowCount failed", this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName)
 	}
 	if err = this.Context.TargetDB.QueryRow(TargetQueryTableCount).Scan(&targetRowCount); err != nil {
 		return false, false, fmt.Errorf("critical: Table %s.%s query TargetRowCount failed", this.PerTableContext.TargetDatabaseName, this.PerTableContext.TargetTableName)
@@ -382,11 +379,11 @@ func (this *ChecksumContext) DataChecksumByCount() (isTableCountEqual bool, isMo
 		isTableCountEqual = false
 		isMoreCheckNeeded = true
 	} else if this.Context.IsSuperSetAsEqual && sourceRowCount > targetRowCount {
-		this.Context.Log.Errorf("Critical: Record check result (sourceTable %d rows, targetTable %d rows) is not equal of table pair: %s.%s => %s.%s.", sourceRowCount, targetRowCount, this.PerTableContext.SourceDatabaseName,this.PerTableContext.SourceTableName, this.PerTableContext.TargetDatabaseName, this.PerTableContext.TargetTableName)
+		this.Context.Log.Errorf("Critical: Record check result (sourceTable %d rows, targetTable %d rows) is not equal of table pair: %s.%s => %s.%s.", sourceRowCount, targetRowCount, this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName, this.PerTableContext.TargetDatabaseName, this.PerTableContext.TargetTableName)
 		isTableCountEqual = false
 		isMoreCheckNeeded = false
 	} else if !this.Context.IsSuperSetAsEqual {
-		this.Context.Log.Errorf("Critical: Record check result (sourceTable %d rows, targetTable %d rows) is not equal of table pair: %s.%s => %s.%s.", sourceRowCount, targetRowCount, this.PerTableContext.SourceDatabaseName,this.PerTableContext.SourceTableName, this.PerTableContext.TargetDatabaseName, this.PerTableContext.TargetTableName)
+		this.Context.Log.Errorf("Critical: Record check result (sourceTable %d rows, targetTable %d rows) is not equal of table pair: %s.%s => %s.%s.", sourceRowCount, targetRowCount, this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName, this.PerTableContext.TargetDatabaseName, this.PerTableContext.TargetTableName)
 		isTableCountEqual = false
 		isMoreCheckNeeded = false
 	}

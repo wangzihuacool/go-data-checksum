@@ -81,6 +81,6 @@ go --help
 ## TEST
 ```
 # 测试语句
-./go-data-checksum --source-db-host="1.1.1.1" --source-db-port=3307 --source-db-user="test" --source-db-password="test" --target-db-host="8.8.8.8" --target-db-port=3307 --target-db-user="test" --target-db-password="test" --source-table-regexp="test\.sbtest.*" --ignore-row-count-check --is-superset-as-equal --threads=4
+./go-data-checksum --source-db-host="1.1.1.1" --source-db-port=3307 --source-db-user="test" --source-db-password="xxxx" --target-db-host="8.8.8.8" --target-db-port=3306 --target-db-user="test" --target-db-password="xxxx" --source-table-regexp="test\.sbtest.*" --ignore-row-count-check --is-superset-as-equal --threads=4
 ```
 

@@ -1,3 +1,8 @@
+/*
+@Author: wangzihuacool
+@Date: 2022-08-28
+*/
+
 package logic
 
 import (
@@ -36,8 +41,8 @@ func (this *ChecksumContext) EstimateTableRowsViaExplain() (estimatedRows int, e
               FROM %s.%s 
              WHERE (%s >= ? and %s <= ?)   
     `, this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName,
-	   this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName,
-	   this.Context.SpecifiedDatetimeColumn, this.Context.SpecifiedDatetimeColumn)
+		this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName,
+		this.Context.SpecifiedDatetimeColumn, this.Context.SpecifiedDatetimeColumn)
 	rows, err := this.Context.SourceDB.Query(query, this.Context.SpecifiedDatetimeRangeBegin, this.Context.SpecifiedDatetimeRangeEnd)
 	if err != nil {
 		return estimatedRows, err
@@ -52,7 +57,7 @@ func (this *ChecksumContext) EstimateTableRowsViaExplain() (estimatedRows int, e
 	if err != nil {
 		return estimatedRows, err
 	}
-    return estimatedRows, nil
+	return estimatedRows, nil
 }
 
 ///*// ReadTimeRangeMinValues returns the minimum values to be iterated on checksum
@@ -124,7 +129,7 @@ func (this *ChecksumContext) EstimateTableRowsViaExplain() (estimatedRows int, e
 func (this *ChecksumContext) CalculateNextIterationTimeRange() (hasFurtherRange bool, err error) {
 	this.TimeIterationRangeMinValue = this.TimeIterationRangeMaxValue
 	if this.TimeIterationRangeMinValue.IsZero() {
-	    this.TimeIterationRangeMinValue = this.Context.SpecifiedDatetimeRangeBegin
+		this.TimeIterationRangeMinValue = this.Context.SpecifiedDatetimeRangeBegin
 	}
 	if this.TimeIterationRangeMinValue.After(this.Context.SpecifiedDatetimeRangeEnd) || this.TimeIterationRangeMinValue == this.Context.SpecifiedDatetimeRangeEnd {
 		hasFurtherRange = false
@@ -135,8 +140,8 @@ func (this *ChecksumContext) CalculateNextIterationTimeRange() (hasFurtherRange 
 	if this.TimeIterationRangeMaxValue.After(this.Context.SpecifiedDatetimeRangeEnd) {
 		this.TimeIterationRangeMaxValue = this.Context.SpecifiedDatetimeRangeEnd
 	}
-	this.ChecksumIterationRangeMinValues = ToColumnValues([] interface{}{this.TimeIterationRangeMinValue})
-	this.ChecksumIterationRangeMaxValues = ToColumnValues([] interface{}{this.TimeIterationRangeMaxValue})
+	this.ChecksumIterationRangeMinValues = ToColumnValues([]interface{}{this.TimeIterationRangeMinValue})
+	this.ChecksumIterationRangeMaxValues = ToColumnValues([]interface{}{this.TimeIterationRangeMaxValue})
 	hasFurtherRange = true
 	return hasFurtherRange, nil
 }
