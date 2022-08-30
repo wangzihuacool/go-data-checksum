@@ -6,6 +6,11 @@ go-data-checksum is a high-performance data check tool to verify data integrity 
 go-data-checksum是一款高性能的MySQL数据库/表数据核对工具。go-data-checksum 可以支持按照主键的全量数据核对，和按照时间字段的增量数据核对；可以支持全字段核对或者指定字段核对。
 go-data-checksum 可以支持跨MySQL实例的多表并行核对，并且支持目标表的数据是源表的超集的场景。核对原理为，计算并比较待核对数据的CRC32值。
 
+## BUILD
+```
+go build go-data-checksum
+```
+
 ## USAGE
 ```
 # 使用帮助
