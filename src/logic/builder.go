@@ -2,8 +2,8 @@ package logic
 
 import (
 	"fmt"
-"strconv"
-"strings"
+	"strconv"
+	"strings"
 )
 
 type ValueComparisonSign string
@@ -218,7 +218,12 @@ func BuildChunkChecksumSQL(databaseName, tableName string, checkColumns, uniqueK
 		checkColumnNames[i] = EscapeName(checkColumnNames[i])
 	}
 	// 源表和影子表共享列(包含重命名列)的字符串表示: sharedCol1, sharedCol2, sharedCol3
-	checkColumnNamesListing := strings.Join(checkColumnNames, ", ")
+	checkColumnNamesListing := strings.Join(checkColumnNames, "), hex(")
+	var builder strings.Builder
+	builder.WriteString("hex(")
+	builder.WriteString(checkColumnNamesListing)
+	builder.WriteString(")")
+	checkColumnNamesListing = builder.String()
 
 	// minRangeComparisonSign = ">"，如果包含范围最小值，则为 ">=" 。包含范围最小值的情况是第一次循环插入
 	var minRangeComparisonSign ValueComparisonSign = GreaterThanComparisonSign
@@ -261,7 +266,6 @@ func BuildChunkChecksumSQL(databaseName, tableName string, checkColumns, uniqueK
 	return result, explodedArgs, nil
 }
 
-
 // BuildRangeChecksumPreparedQuery 返回分批计算CRC32的checksum值的SQL，这里分批范围是 (rangeMin, rangeMax] ，第一批是 [rangeMin, rangeMax]
 func BuildRangeChecksumPreparedQuery(databaseName, tableName string, checkColumns, uniqueKeyColumns *ColumnList, rangeStartArgs, rangeEndArgs []interface{}, includeRangeStartValues bool, checkLevel int64) (result string, explodedArgs []interface{}, err error) {
 	// buildColumnsPreparedValues 构造唯一键的columns的prepared values，做一些时区转换和json转换等
@@ -269,7 +273,6 @@ func BuildRangeChecksumPreparedQuery(databaseName, tableName string, checkColumn
 	rangeEndValues := buildColumnsPreparedValues(uniqueKeyColumns)
 	return BuildChunkChecksumSQL(databaseName, tableName, checkColumns, uniqueKeyColumns, rangeStartValues, rangeEndValues, rangeStartArgs, rangeEndArgs, includeRangeStartValues, checkLevel)
 }
-
 
 // BuildUniqueKeyRangeEndPreparedQueryViaOffset 构造分批范围的分批下限值查询SQL
 // 最终SQL类似：select  /* gh-ost db.tab iteration:5 */
@@ -429,6 +432,7 @@ func BuildUniqueKeyRangeEndPreparedQueryViaTemptable(databaseName, tableName str
 func BuildUniqueKeyMinValuesPreparedQuery(databaseName, tableName string, uniqueKeyColumns *ColumnList) (string, error) {
 	return buildUniqueKeyMinMaxValuesPreparedQuery(databaseName, tableName, uniqueKeyColumns, "asc")
 }
+
 // BuildUniqueKeyMaxValuesPreparedQuery 构造查询唯一键最大值的SQL
 func BuildUniqueKeyMaxValuesPreparedQuery(databaseName, tableName string, uniqueKeyColumns *ColumnList) (string, error) {
 	return buildUniqueKeyMinMaxValuesPreparedQuery(databaseName, tableName, uniqueKeyColumns, "desc")
