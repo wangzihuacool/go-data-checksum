@@ -170,6 +170,7 @@ func (this *ChecksumJob) ChecksumPerTable(baseContext *logic.BaseContext, tableC
 		if !isMoreCheckNeeded {
 			baseContext.ChecksumErrChan <- nil
 			baseContext.ChecksumResChan <- false
+			return nil
 		}
 	} else {
 		baseContext.Log.Debugf("Ignore DataChecksumByCount of table pair: %s.%s => %s.%s due to IgnoreRowCountCheck=true.", ChecksumContext.PerTableContext.SourceDatabaseName, ChecksumContext.PerTableContext.SourceTableName, ChecksumContext.PerTableContext.TargetDatabaseName, ChecksumContext.PerTableContext.TargetTableName)
@@ -364,7 +365,7 @@ func (this *ChecksumJob) checksum(baseContext *logic.BaseContext) {
 	baseContext.ChecksumResChan = make(chan bool, tableNum)
 	baseContext.ChecksumErrChan = make(chan error, tableNum)
 	var keys []string
-	for key, _ := range baseContext.PairOfSourceAndTargetTables {
+	for key := range baseContext.PairOfSourceAndTargetTables {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
