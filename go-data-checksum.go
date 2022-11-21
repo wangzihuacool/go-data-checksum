@@ -176,7 +176,7 @@ func (this *ChecksumJob) ChecksumPerTable(baseContext *logic.BaseContext, tableC
 		baseContext.Log.Debugf("Ignore DataChecksumByCount of table pair: %s.%s => %s.%s due to IgnoreRowCountCheck=true.", ChecksumContext.PerTableContext.SourceDatabaseName, ChecksumContext.PerTableContext.SourceTableName, ChecksumContext.PerTableContext.TargetDatabaseName, ChecksumContext.PerTableContext.TargetTableName)
 	}
 
-	// 判断用户有没有输入checkcolumn，没有则取全表左右核对字段
+	// 判断用户有没有输入checkcolumn，没有则取全表所有字段作为核对字段
 	baseContext.Log.Debugf("Get user-request check columns of table pair: %s.%s => %s.%s .", ChecksumContext.PerTableContext.SourceDatabaseName, ChecksumContext.PerTableContext.SourceTableName, ChecksumContext.PerTableContext.TargetDatabaseName, ChecksumContext.PerTableContext.TargetTableName)
 	if ChecksumContext.CheckColumns == nil {
 		if err := ChecksumContext.GetCheckColumns(); err != nil {
@@ -190,16 +190,19 @@ func (this *ChecksumJob) ChecksumPerTable(baseContext *logic.BaseContext, tableC
 	if err := ChecksumContext.GetUniqueKeys(); err != nil {
 		baseContext.ChecksumErrChan <- err
 		baseContext.ChecksumResChan <- false
+		return err
 	}
 	baseContext.Log.Debugf("ReadUniqueKeyRangeMinValues of table pair: %s.%s => %s.%s .", ChecksumContext.PerTableContext.SourceDatabaseName, ChecksumContext.PerTableContext.SourceTableName, ChecksumContext.PerTableContext.TargetDatabaseName, ChecksumContext.PerTableContext.TargetTableName)
 	if err := ChecksumContext.ReadUniqueKeyRangeMinValues(); err != nil {
 		baseContext.ChecksumErrChan <- err
 		baseContext.ChecksumResChan <- false
+		return err
 	}
 	baseContext.Log.Debugf("ReadUniqueKeyRangeMaxValues of table pair: %s.%s => %s.%s .", ChecksumContext.PerTableContext.SourceDatabaseName, ChecksumContext.PerTableContext.SourceTableName, ChecksumContext.PerTableContext.TargetDatabaseName, ChecksumContext.PerTableContext.TargetTableName)
 	if err := ChecksumContext.ReadUniqueKeyRangeMaxValues(); err != nil {
 		baseContext.ChecksumErrChan <- err
 		baseContext.ChecksumResChan <- false
+		return err
 	}
 
 	// 计算checksum值
