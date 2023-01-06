@@ -16,6 +16,7 @@ import (
 type ChecksumContext struct {
 	CheckColumns                    *ColumnList
 	UniqueKey                       *ColumnList
+	UniqueIndexName                 string
 	TimeColumn                      *ColumnList
 	UniqueKeyRangeMinValues         *ColumnValues
 	UniqueKeyRangeMaxValues         *ColumnValues
@@ -163,6 +164,7 @@ func (this *ChecksumContext) GetUniqueKeys() (err error) {
 	}
 	this.Context.Log.Debugf("Debug: UniqueKeys of source table: %s.%s is %s", this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName, columnNames)
 	this.UniqueKey = ParseColumnList(columnNames)
+	this.UniqueIndexName = indexName
 	return nil
 }
 
@@ -237,6 +239,7 @@ func (this *ChecksumContext) CalculateNextIterationRangeEndValues() (hasFurtherR
 			atomic.LoadInt64(&this.Context.ChunkSize),
 			this.GetIteration() == 0,
 			fmt.Sprintf("iteration:%d", this.GetIteration()),
+			this.UniqueIndexName,
 		)
 		if err != nil {
 			return hasFurtherRange, err

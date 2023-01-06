@@ -30,83 +30,82 @@ const (
 const maxMediumintUnsigned int32 = 16777215
 
 type TableContext struct {
-	SourceDatabaseName              string
-	SourceTableName                 string
-	TargetDatabaseName              string
-	TargetTableName                 string
-	FinishedFlag                    int64
-	Iteration                       int64
+	SourceDatabaseName string
+	SourceTableName    string
+	TargetDatabaseName string
+	TargetTableName    string
+	FinishedFlag       int64
+	Iteration          int64
 }
 
 func NewTableContext(sourceDatabaseName, sourceTableName, targetDatabaseName, targetTableName string) *TableContext {
 	return &TableContext{
-		SourceDatabaseName:             sourceDatabaseName,
-		SourceTableName:                sourceTableName,
-		TargetDatabaseName:             targetDatabaseName,
-		TargetTableName:                targetTableName,
-		FinishedFlag:                   0,
-		Iteration:                      0,
+		SourceDatabaseName: sourceDatabaseName,
+		SourceTableName:    sourceTableName,
+		TargetDatabaseName: targetDatabaseName,
+		TargetTableName:    targetTableName,
+		FinishedFlag:       0,
+		Iteration:          0,
 	}
 }
 
 type BaseContext struct {
-	SourceDBHost                    string
-	SourceDBPort                    int
-	SourceDBUser                    string
-	SourceDBPass                    string
-	TargetDBHost                    string
-	TargetDBPort                    int
-	TargetDBUser                    string
-	TargetDBPass                    string
-	Timeout                         int
-	SourceDB                        *gosql.DB
-	TargetDB                        *gosql.DB
+	SourceDBHost string
+	SourceDBPort int
+	SourceDBUser string
+	SourceDBPass string
+	TargetDBHost string
+	TargetDBPort int
+	TargetDBUser string
+	TargetDBPass string
+	Timeout      int
+	SourceDB     *gosql.DB
+	TargetDB     *gosql.DB
 
-	SourceDatabases                 string
-	SourceTables                    string
-	TargetDatabases                 string
-	TargetTables                    string
-	TargetDatabaseAsSource          bool
-	TargetTableAsSource             bool
-	TargetDatabaseAddSuffix         string
-	TargetTableAddSuffix            string
-	SourceTableNameRegexp           string
-	TableQueryHint                  string
+	SourceDatabases         string
+	SourceTables            string
+	TargetDatabases         string
+	TargetTables            string
+	TargetDatabaseAsSource  bool
+	TargetTableAsSource     bool
+	TargetDatabaseAddSuffix string
+	TargetTableAddSuffix    string
+	SourceTableNameRegexp   string
+	TableQueryHint          string
 
-	SourceTableFullNameList         []string
-	TargetTableFullNameList         []string
-	PairOfSourceAndTargetTables     map[string]string
-	SourceDatabaseList              []string
-	SourceTableList                 []string
-	TargetDatabaseList              []string
-    TargetTableList                 []string
-	RequestedColumnNames            string
-	SpecifiedDatetimeColumn         string
-	SpecifiedTimeRangePerStep       time.Duration
-	SpecifiedDatetimeRangeBegin     time.Time
-	SpecifiedDatetimeRangeEnd       time.Time
-	IgnoreRowCountCheck             bool
+	SourceTableFullNameList     []string
+	TargetTableFullNameList     []string
+	PairOfSourceAndTargetTables map[string]string
+	SourceDatabaseList          []string
+	SourceTableList             []string
+	TargetDatabaseList          []string
+	TargetTableList             []string
+	RequestedColumnNames        string
+	SpecifiedDatetimeColumn     string
+	SpecifiedTimeRangePerStep   time.Duration
+	SpecifiedDatetimeRangeBegin time.Time
+	SpecifiedDatetimeRangeEnd   time.Time
+	IgnoreRowCountCheck         bool
 
-	ChunkSize                       int64
-	DefaultNumRetries               int64
-	IsSuperSetAsEqual               bool
-	ParallelThreads                 int
-	ChecksumResChan                 chan bool
-	ChecksumErrChan                 chan error
-	PanicAbort                      chan error
-	throttleMutex                   *sync.Mutex
-	Log                             *log.Logger
-	Logfile                         string
+	ChunkSize         int64
+	DefaultNumRetries int64
+	IsSuperSetAsEqual bool
+	ParallelThreads   int
+	ChecksumResChan   chan bool
+	ChecksumErrChan   chan error
+	PanicAbort        chan error
+	throttleMutex     *sync.Mutex
+	Log               *log.Logger
+	Logfile           string
 }
-
 
 func NewBaseContext() *BaseContext {
 	return &BaseContext{
-		ChunkSize:                   1000,
-		DefaultNumRetries:           10,
-		PanicAbort:                  make(chan error),
-		throttleMutex:               &sync.Mutex{},
-		Log:                         log.New(),
+		ChunkSize:         1000,
+		DefaultNumRetries: 10,
+		PanicAbort:        make(chan error),
+		throttleMutex:     &sync.Mutex{},
+		Log:               log.New(),
 	}
 }
 
@@ -212,22 +211,15 @@ func (this *BaseContext) CloseDB() {
 	this.SourceDB.Close()
 }
 
-
-
-
 // ListenOnPanicAbort aborts on abort request
 func (this *BaseContext) ListenOnPanicAbort() {
-	err := <- this.PanicAbort
+	err := <-this.PanicAbort
 	this.Log.Fatalf(err.Error())
 }
-
-
-
 
 type TimezoneConversion struct {
 	ToTimezone string
 }
-
 
 type Column struct {
 	Name                 string
@@ -237,9 +229,8 @@ type Column struct {
 	EnumValues           string
 	timezoneConversion   *TimezoneConversion
 	enumToTextConversion bool
-	BinaryOctetLength uint
+	BinaryOctetLength    uint
 }
-
 
 func NewColumns(names []string) []Column {
 	result := make([]Column, len(names))
@@ -386,9 +377,9 @@ func (this *ColumnList) Len() int {
 
 // UniqueKey is the combination of a key's name and columns
 type UniqueKey struct {
-	Name        string
-	Columns     ColumnList
-	HasNullable bool
+	Name            string
+	Columns         ColumnList
+	HasNullable     bool
 	IsAutoIncrement bool
 }
 

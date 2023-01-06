@@ -285,12 +285,13 @@ func BuildRangeChecksumPreparedQuery(databaseName, tableName string, checkColumn
 //					col1 asc, col2 asc, col3 asc
 //			 limit 1
 //			 offset {chunkSize -1}
-func BuildUniqueKeyRangeEndPreparedQueryViaOffset(databaseName, tableName string, uniqueKeyColumns *ColumnList, rangeStartArgs, rangeEndArgs []interface{}, chunkSize int64, includeRangeStartValues bool, hint string) (result string, explodedArgs []interface{}, err error) {
+func BuildUniqueKeyRangeEndPreparedQueryViaOffset(databaseName, tableName string, uniqueKeyColumns *ColumnList, rangeStartArgs, rangeEndArgs []interface{}, chunkSize int64, includeRangeStartValues bool, hint string, indexName string) (result string, explodedArgs []interface{}, err error) {
 	if uniqueKeyColumns.Len() == 0 {
 		return "", explodedArgs, fmt.Errorf("Got 0 columns in BuildUniqueKeyRangeEndPreparedQuery")
 	}
 	databaseName = EscapeName(databaseName)
 	tableName = EscapeName(tableName)
+	indexName = EscapeName(indexName)
 
 	// 包含范围起始值，则为GreaterThanOrEqualsComparisonSign，即">="；不包含范围起始值，则为GreaterThanComparisonSign 即 ">"
 	var startRangeComparisonSign ValueComparisonSign = GreaterThanComparisonSign
@@ -330,7 +331,7 @@ func BuildUniqueKeyRangeEndPreparedQueryViaOffset(databaseName, tableName string
 				select  /* dataChecksum %s.%s %s */
 						%s
 					from
-						%s.%s
+						%s.%s force index(%s)
 					where %s and %s
 					order by
 						%s
@@ -338,7 +339,7 @@ func BuildUniqueKeyRangeEndPreparedQueryViaOffset(databaseName, tableName string
 					offset %d
     `, databaseName, tableName, hint,
 		strings.Join(uniqueKeyColumnNames, ", "),
-		databaseName, tableName,
+		databaseName, tableName, indexName,
 		rangeStartComparison, rangeEndComparison,
 		strings.Join(uniqueKeyColumnAscending, ", "),
 		(chunkSize - 1),
@@ -363,12 +364,13 @@ func BuildUniqueKeyRangeEndPreparedQueryViaOffset(databaseName, tableName string
 //			order by
 //				col1 desc, col2 desc, col3 desc
 //			limit 1
-func BuildUniqueKeyRangeEndPreparedQueryViaTemptable(databaseName, tableName string, uniqueKeyColumns *ColumnList, rangeStartArgs, rangeEndArgs []interface{}, chunkSize int64, includeRangeStartValues bool, hint string) (result string, explodedArgs []interface{}, err error) {
+func BuildUniqueKeyRangeEndPreparedQueryViaTemptable(databaseName, tableName string, uniqueKeyColumns *ColumnList, rangeStartArgs, rangeEndArgs []interface{}, chunkSize int64, includeRangeStartValues bool, hint string, indexName string) (result string, explodedArgs []interface{}, err error) {
 	if uniqueKeyColumns.Len() == 0 {
 		return "", explodedArgs, fmt.Errorf("Got 0 columns in BuildUniqueKeyRangeEndPreparedQuery")
 	}
 	databaseName = EscapeName(databaseName)
 	tableName = EscapeName(tableName)
+	indexName = EscapeName(indexName)
 
 	// 包含范围起始值，则为GreaterThanOrEqualsComparisonSign，即">="；不包含范围起始值，则为GreaterThanComparisonSign 即 ">"
 	var startRangeComparisonSign ValueComparisonSign = GreaterThanComparisonSign
@@ -410,7 +412,7 @@ func BuildUniqueKeyRangeEndPreparedQueryViaTemptable(databaseName, tableName str
 					select
 							%s
 						from
-							%s.%s
+							%s.%s force index(%s)
 						where %s and %s
 						order by
 							%s
@@ -420,7 +422,7 @@ func BuildUniqueKeyRangeEndPreparedQueryViaTemptable(databaseName, tableName str
 				%s
 			limit 1
     `, databaseName, tableName, hint, strings.Join(uniqueKeyColumnNames, ", "),
-		strings.Join(uniqueKeyColumnNames, ", "), databaseName, tableName,
+		strings.Join(uniqueKeyColumnNames, ", "), databaseName, tableName, indexName,
 		rangeStartComparison, rangeEndComparison,
 		strings.Join(uniqueKeyColumnAscending, ", "), chunkSize,
 		strings.Join(uniqueKeyColumnDescending, ", "),
