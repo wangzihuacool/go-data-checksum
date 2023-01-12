@@ -258,11 +258,27 @@ func BuildChunkChecksumSQL(databaseName, tableName string, checkColumns, uniqueK
 		return "", nil, fmt.Errorf("Critical: table %s.%s wrong checkLevelFlag input in BuildChunkChecksumSQL.",
 			databaseName, tableName)
 	}
+
+	// uniqueKeyColumnNames 为唯一键的字段名，uniqueKeyColumnAscending 为唯一键字段名+asc
+	uniqueKeyColumnNames := duplicateNames(uniqueKeyColumns.Names())
+	uniqueKeyColumnAscending := make([]string, len(uniqueKeyColumnNames), len(uniqueKeyColumnNames))
+	for i, column := range uniqueKeyColumns.Columns() {
+		uniqueKeyColumnNames[i] = EscapeName(uniqueKeyColumnNames[i])
+		if column.Type == EnumColumnType {
+			uniqueKeyColumnAscending[i] = fmt.Sprintf("concat(%s) asc", uniqueKeyColumnNames[i])
+		} else {
+			uniqueKeyColumnAscending[i] = fmt.Sprintf("%s asc", uniqueKeyColumnNames[i])
+		}
+	}
+
 	result = fmt.Sprintf(`
       select /* dataChecksum %s.%s */ %s
         from %s.%s 
        where (%s and %s)
-    `, databaseName, tableName, checkClause, databaseName, tableName, rangeStartComparison, rangeEndComparison)
+      order by %s
+    `, databaseName, tableName, checkClause, databaseName, tableName,
+		rangeStartComparison, rangeEndComparison, strings.Join(uniqueKeyColumnAscending, ", "),
+	)
 	return result, explodedArgs, nil
 }
 
