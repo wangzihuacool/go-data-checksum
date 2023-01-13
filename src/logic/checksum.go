@@ -13,6 +13,15 @@ import (
 	"time"
 )
 
+type crc32ResultStruct struct {
+	result []string
+	err    error
+}
+
+func newCrc32ResultStruct(ret []string, err error) *crc32ResultStruct {
+	return &crc32ResultStruct{result: ret, err: err}
+}
+
 type ChecksumContext struct {
 	CheckColumns                    *ColumnList
 	UniqueKey                       *ColumnList
@@ -26,12 +35,16 @@ type ChecksumContext struct {
 	ChecksumIterationRangeMaxValues *ColumnValues
 	Context                         *BaseContext
 	PerTableContext                 *TableContext
+	SourceResultQueue               chan *crc32ResultStruct
+	TargetResultQueue               chan *crc32ResultStruct
 }
 
 func NewChecksumContext(context *BaseContext, perTableContext *TableContext) *ChecksumContext {
 	return &ChecksumContext{
-		Context:         context,
-		PerTableContext: perTableContext,
+		Context:           context,
+		PerTableContext:   perTableContext,
+		SourceResultQueue: make(chan *crc32ResultStruct),
+		TargetResultQueue: make(chan *crc32ResultStruct),
 	}
 }
 
@@ -284,7 +297,8 @@ func (this *ChecksumContext) IterationQueryChecksum() (isChunkChecksumEqual bool
 	}()
 
 	// 获取ChunkChecksum结果(聚合CRC32XOR 或者 逐行CRC32)
-	QueryChecksumFunc := func(db *gosql.DB, databaseName, tableName string, checkLevel int64) (ret []string, err error) {
+	QueryChecksumFunc := func(db *gosql.DB, databaseName, tableName string, checkLevel int64, ch chan *crc32ResultStruct) {
+		var ret []string
 		query, explodedArgs, err := BuildRangeChecksumPreparedQuery(
 			databaseName,
 			tableName,
@@ -296,26 +310,26 @@ func (this *ChecksumContext) IterationQueryChecksum() (isChunkChecksumEqual bool
 			checkLevel,
 		)
 		if err != nil {
-			return ret, err
+			ch <- newCrc32ResultStruct(ret, err)
 		}
 
 		rows, err := db.Query(query, explodedArgs...)
 		if err != nil {
-			return ret, err
+			ch <- newCrc32ResultStruct(ret, err)
 		}
 		defer rows.Close()
 		for rows.Next() {
 			rowValues := NewColumnValues(1)
 			if err := rows.Scan(rowValues.ValuesPointers...); err != nil {
-				return ret, err
+				ch <- newCrc32ResultStruct(ret, err)
 			}
 			ret = append(ret, rowValues.StringColumn(0))
 		}
 		err = rows.Err()
 		if err != nil {
-			return ret, err
+			ch <- newCrc32ResultStruct(ret, err)
 		}
-		return ret, nil
+		ch <- newCrc32ResultStruct(ret, err)
 	}
 
 	// 判断有序集subset是否superset的子集
@@ -345,17 +359,19 @@ func (this *ChecksumContext) IterationQueryChecksum() (isChunkChecksumEqual bool
 
 	var sourceResult []string
 	var targetResult []string
-	// SourceDB
-	if sourceResult, err = QueryChecksumFunc(this.Context.SourceDB, this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName, checkLevel); err != nil {
-		return false, duration, err
-	}
-	// TargetDB
-	if targetResult, err = QueryChecksumFunc(this.Context.TargetDB, this.PerTableContext.TargetDatabaseName, this.PerTableContext.TargetTableName, checkLevel); err != nil {
-		return false, duration, err
+
+	go QueryChecksumFunc(this.Context.SourceDB, this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName, checkLevel, this.SourceResultQueue)
+	go QueryChecksumFunc(this.Context.TargetDB, this.PerTableContext.TargetDatabaseName, this.PerTableContext.TargetTableName, checkLevel, this.TargetResultQueue)
+	sourceResultStruct, targetResultStruct := <-this.SourceResultQueue, <-this.TargetResultQueue
+	if sourceResultStruct.err != nil {
+		return false, duration, sourceResultStruct.err
+	} else if targetResultStruct.err != nil {
+		return false, duration, targetResultStruct.err
+	} else {
+		sourceResult, targetResult = sourceResultStruct.result, targetResultStruct.result
 	}
 
 	atomic.AddInt64(&this.PerTableContext.Iteration, 1)
-
 	if reflect.DeepEqual(sourceResult, targetResult) {
 		return true, duration, nil
 	} else if checkLevel == 2 {
