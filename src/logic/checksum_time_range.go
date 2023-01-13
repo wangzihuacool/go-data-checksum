@@ -6,7 +6,6 @@
 package logic
 
 import (
-	gosql "database/sql"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -149,55 +148,29 @@ func (this *ChecksumContext) CalculateNextIterationTimeRange() (hasFurtherRange 
 // IterationTimeRangeQueryChecksum issues a chunk-Checksum query on the table with datetime range.
 // 1. 批次核对：单个批次内聚合结果CRC32值按位异或结果，计算方式：COALESCE(LOWER(CONV(BIT_XOR(cast(crc32(CONCAT_WS('#',C1,C2,C3,Cn)) as UNSIGNED)), 10, 16)), 0)
 // 2. 记录级核对：单个批次内每条记录的CRC32值，判断源端的CRC32是不是目标端的CRC32的子集，计算方式: COALESCE(LOWER(CONV(cast(crc32(CONCAT_WS('#',id, ftime, c1, c2)) as UNSIGNED), 10, 16)), 0)
-func (this ChecksumContext) IterationTimeRangeQueryChecksum() (isChunkChecksumEqual bool, duration time.Duration, err error) {
+func (this *ChecksumContext) IterationTimeRangeQueryChecksum() (isChunkChecksumEqual bool, duration time.Duration, err error) {
 	startTime := time.Now()
 	defer func() {
 		duration = time.Since(startTime)
 	}()
 
-	// 获取ChunkChecksum结果(聚合CRC32XOR 或者 逐行CRC32)
-	QueryChecksumFunc := func(db *gosql.DB, databaseName, tableName string, checkLevel int64) (ret []string, err error) {
-		query, explodedArgs, err := BuildRangeChecksumPreparedQuery(
-			databaseName,
-			tableName,
-			this.CheckColumns,
-			this.TimeColumn,
-			this.ChecksumIterationRangeMinValues.AbstractValues(),
-			this.ChecksumIterationRangeMaxValues.AbstractValues(),
-			this.GetIteration() == 0,
-			checkLevel,
-		)
-		if err != nil {
-			return ret, err
-		}
-
-		rows, err := db.Query(query, explodedArgs...)
-		if err != nil {
-			return ret, err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			rowValues := NewColumnValues(1)
-			if err := rows.Scan(rowValues.ValuesPointers...); err != nil {
-				return ret, err
+	// 判断有序集subset是否superset的子集
+	subsetCheckFunc := func(subset []string, superset []string) bool {
+		startIndex := 0
+		for i := 0; i < len(subset); i++ {
+			founded := false
+			for j := startIndex; j < len(superset); j++ {
+				if subset[i] == superset[j] {
+					startIndex = j + 1
+					founded = true
+					break
+				}
 			}
-			ret = append(ret, rowValues.StringColumn(0))
-		}
-		err = rows.Err()
-		if err != nil {
-			return ret, err
-		}
-		return ret, nil
-	}
-
-	// 判断元素是否在slice中
-	ElementInSliceFunc := func(inSlice []string, element string) bool {
-		for _, e := range inSlice {
-			if e == element {
-				return true
+			if founded == false {
+				return false
 			}
 		}
-		return false
+		return true
 	}
 
 	// 计算CRC32XOR聚合值，还是逐行CRC32值
@@ -208,24 +181,24 @@ func (this ChecksumContext) IterationTimeRangeQueryChecksum() (isChunkChecksumEq
 
 	var sourceResult []string
 	var targetResult []string
-	// SourceDB
-	if sourceResult, err = QueryChecksumFunc(this.Context.SourceDB, this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName, checkLevel); err != nil {
-		return false, duration, err
-	}
-	// TargetDB
-	if targetResult, err = QueryChecksumFunc(this.Context.TargetDB, this.PerTableContext.TargetDatabaseName, this.PerTableContext.TargetTableName, checkLevel); err != nil {
-		return false, duration, err
+
+	go this.QueryChecksumFunc(this.Context.SourceDB, this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName, this.TimeColumn, checkLevel, this.SourceResultQueue)
+	go this.QueryChecksumFunc(this.Context.TargetDB, this.PerTableContext.TargetDatabaseName, this.PerTableContext.TargetTableName, this.TimeColumn, checkLevel, this.TargetResultQueue)
+	sourceResultStruct, targetResultStruct := <-this.SourceResultQueue, <-this.TargetResultQueue
+	if sourceResultStruct.err != nil {
+		return false, duration, sourceResultStruct.err
+	} else if targetResultStruct.err != nil {
+		return false, duration, targetResultStruct.err
+	} else {
+		sourceResult, targetResult = sourceResultStruct.result, targetResultStruct.result
 	}
 
 	atomic.AddInt64(&this.PerTableContext.Iteration, 1)
-
 	if reflect.DeepEqual(sourceResult, targetResult) {
 		return true, duration, nil
 	} else if checkLevel == 2 {
-		for _, v := range sourceResult {
-			if isInTarget := ElementInSliceFunc(targetResult, v); isInTarget == false {
-				return false, duration, nil
-			}
+		if isSuperset := subsetCheckFunc(sourceResult, targetResult); isSuperset == false {
+			return false, duration, nil
 		}
 		return true, duration, nil
 	}

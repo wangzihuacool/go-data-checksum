@@ -296,42 +296,6 @@ func (this *ChecksumContext) IterationQueryChecksum() (isChunkChecksumEqual bool
 		duration = time.Since(startTime)
 	}()
 
-	// 获取ChunkChecksum结果(聚合CRC32XOR 或者 逐行CRC32)
-	QueryChecksumFunc := func(db *gosql.DB, databaseName, tableName string, checkLevel int64, ch chan *crc32ResultStruct) {
-		var ret []string
-		query, explodedArgs, err := BuildRangeChecksumPreparedQuery(
-			databaseName,
-			tableName,
-			this.CheckColumns,
-			this.UniqueKey,
-			this.ChecksumIterationRangeMinValues.AbstractValues(),
-			this.ChecksumIterationRangeMaxValues.AbstractValues(),
-			this.GetIteration() == 0,
-			checkLevel,
-		)
-		if err != nil {
-			ch <- newCrc32ResultStruct(ret, err)
-		}
-
-		rows, err := db.Query(query, explodedArgs...)
-		if err != nil {
-			ch <- newCrc32ResultStruct(ret, err)
-		}
-		defer rows.Close()
-		for rows.Next() {
-			rowValues := NewColumnValues(1)
-			if err := rows.Scan(rowValues.ValuesPointers...); err != nil {
-				ch <- newCrc32ResultStruct(ret, err)
-			}
-			ret = append(ret, rowValues.StringColumn(0))
-		}
-		err = rows.Err()
-		if err != nil {
-			ch <- newCrc32ResultStruct(ret, err)
-		}
-		ch <- newCrc32ResultStruct(ret, err)
-	}
-
 	// 判断有序集subset是否superset的子集
 	subsetCheckFunc := func(subset []string, superset []string) bool {
 		startIndex := 0
@@ -360,8 +324,8 @@ func (this *ChecksumContext) IterationQueryChecksum() (isChunkChecksumEqual bool
 	var sourceResult []string
 	var targetResult []string
 
-	go QueryChecksumFunc(this.Context.SourceDB, this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName, checkLevel, this.SourceResultQueue)
-	go QueryChecksumFunc(this.Context.TargetDB, this.PerTableContext.TargetDatabaseName, this.PerTableContext.TargetTableName, checkLevel, this.TargetResultQueue)
+	go this.QueryChecksumFunc(this.Context.SourceDB, this.PerTableContext.SourceDatabaseName, this.PerTableContext.SourceTableName, this.UniqueKey, checkLevel, this.SourceResultQueue)
+	go this.QueryChecksumFunc(this.Context.TargetDB, this.PerTableContext.TargetDatabaseName, this.PerTableContext.TargetTableName, this.UniqueKey, checkLevel, this.TargetResultQueue)
 	sourceResultStruct, targetResultStruct := <-this.SourceResultQueue, <-this.TargetResultQueue
 	if sourceResultStruct.err != nil {
 		return false, duration, sourceResultStruct.err
@@ -381,6 +345,42 @@ func (this *ChecksumContext) IterationQueryChecksum() (isChunkChecksumEqual bool
 		return true, duration, nil
 	}
 	return false, duration, nil
+}
+
+// QueryChecksumFunc 获取ChunkChecksum结果(聚合CRC32XOR 或者 逐行CRC32)
+func (this *ChecksumContext) QueryChecksumFunc(db *gosql.DB, databaseName, tableName string, uniqueColumn *ColumnList, checkLevel int64, ch chan *crc32ResultStruct) {
+	var ret []string
+	query, explodedArgs, err := BuildRangeChecksumPreparedQuery(
+		databaseName,
+		tableName,
+		this.CheckColumns,
+		uniqueColumn,
+		this.ChecksumIterationRangeMinValues.AbstractValues(),
+		this.ChecksumIterationRangeMaxValues.AbstractValues(),
+		this.GetIteration() == 0,
+		checkLevel,
+	)
+	if err != nil {
+		ch <- newCrc32ResultStruct(ret, err)
+	}
+
+	rows, err := db.Query(query, explodedArgs...)
+	if err != nil {
+		ch <- newCrc32ResultStruct(ret, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		rowValues := NewColumnValues(1)
+		if err := rows.Scan(rowValues.ValuesPointers...); err != nil {
+			ch <- newCrc32ResultStruct(ret, err)
+		}
+		ret = append(ret, rowValues.StringColumn(0))
+	}
+	err = rows.Err()
+	if err != nil {
+		ch <- newCrc32ResultStruct(ret, err)
+	}
+	ch <- newCrc32ResultStruct(ret, err)
 }
 
 // DataChecksumByCount 比较源表和目标表的总记录数，如果IsSuperSetAsEqual为false则只有记录数相等才认为核平，否则源表记录数少于等于目标表则认为核平，返回是否核平以及是否需要继续核对

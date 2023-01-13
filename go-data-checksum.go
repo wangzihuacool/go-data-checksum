@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+var AppVersion string
+
 // ChecksumJob 用于协程池管理
 type ChecksumJob struct {
 	ChecksumJobChan chan int
@@ -433,7 +435,7 @@ func main() {
 	flag.IntVar(&baseContext.TargetDBPort, "target-db-port", 3306, "Target MySQL port")
 	flag.StringVar(&baseContext.TargetDBUser, "target-db-user", "", "MySQL user")
 	flag.StringVar(&baseContext.TargetDBPass, "target-db-password", "", "MySQL password")
-	flag.IntVar(&baseContext.Timeout, "conn-db-timeout", 30, "connect db timeout")
+	flag.IntVar(&baseContext.Timeout, "conn-db-timeout", 60, "connect db timeout")
 	flag.StringVar(&baseContext.RequestedColumnNames, "check-column-names", "", "Column names to check,eg: col1,col2,col3. By default, all columns are used.")
 	flag.StringVar(&baseContext.SpecifiedDatetimeColumn, "specified-time-column", "", "Specified time column for range dataCheck.")
 	flag.DurationVar(&baseContext.SpecifiedTimeRangePerStep, "time-range-per-step", 5*time.Minute, "time range per step for specified time column check,default 5m,eg:1h/2m/3s/4ms")
@@ -446,8 +448,18 @@ func main() {
 	flag.IntVar(&baseContext.ParallelThreads, "threads", 1, "Parallel threads of table checksum.")
 	debug := flag.Bool("debug", false, "debug mode (very verbose)")
 	logFile := flag.String("logfile", "", "Log file name.")
+	version := flag.Bool("version", false, "Print version & exit")
 
 	flag.Parse()
+	if *version {
+		appVersion := AppVersion
+		if appVersion == "" {
+			appVersion = "unversioned"
+		}
+		fmt.Println(appVersion)
+		return
+	}
+
 	go baseContext.ListenOnPanicAbort()
 
 	if err := baseContext.SetSpecifiedDatetimeRange(*specifiedDatetimeRangeBegin, *specifiedDatetimeRangeEnd); err != nil {
@@ -464,7 +476,7 @@ func main() {
 		baseContext.Log.Infof("Finished go-data-checksum. TotalDuration=%+v", time.Since(startTime))
 	}()
 	// 初始化源和目标库连接
-	baseContext.Log.Infof("Staring go-data-checksum...")
+	baseContext.Log.Infof("Staring go-data-checksum %+v...", AppVersion)
 	if err := baseContext.InitDB(); err != nil {
 		baseContext.Log.Errorf("DB connection initiate failed.")
 		baseContext.PanicAbort <- err
