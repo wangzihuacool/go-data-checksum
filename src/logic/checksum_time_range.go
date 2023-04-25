@@ -21,7 +21,7 @@ func (this *ChecksumContext) GetTimeColumn() error {
     WHERE TABLE_SCHEMA = ?
       AND TABLE_NAME = ?
       AND COLUMN_NAME = ?
-      AND DATA_TYPE = 'datetime'
+      AND DATA_TYPE in ('datetime', 'timestamp')
       AND COLUMN_KEY in ('PRI', 'UNI', 'MUL')
     limit 1
     `
