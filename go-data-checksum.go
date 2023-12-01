@@ -38,9 +38,9 @@ func GenerateTableList(baseContext *logic.BaseContext) (err error) {
 			query = fmt.Sprintf(`
               select concat(table_schema, '.', table_name) as table_name
                 from information_schema.tables
-               where table_schema in ("%s")
+               where table_schema in ('%s')
                order by 1
-            `, strings.Join(databases, ", "),
+            `, strings.Join(databases, "', '"),
 			)
 		} else if hint == "QueryTableNameWithRegexp" {
 			query = fmt.Sprintf(`
