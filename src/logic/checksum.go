@@ -296,7 +296,7 @@ func (this *ChecksumContext) IterationQueryChecksum() (isChunkChecksumEqual bool
 		duration = time.Since(startTime)
 	}()
 
-	// 判断有序集subset是否superset的子集
+	// 判断有序集subset是否superset的子集,这里可以沿用类似归档排序方式,主要由于主键是可以保证顺序一样
 	subsetCheckFunc := func(subset []string, superset []string) bool {
 		startIndex := 0
 		for i := 0; i < len(subset); i++ {
@@ -362,25 +362,30 @@ func (this *ChecksumContext) QueryChecksumFunc(db *gosql.DB, databaseName, table
 	)
 	if err != nil {
 		ch <- newCrc32ResultStruct(ret, err)
+		return
 	}
 
 	rows, err := db.Query(query, explodedArgs...)
 	if err != nil {
 		ch <- newCrc32ResultStruct(ret, err)
+		return
 	}
 	defer rows.Close()
 	for rows.Next() {
 		rowValues := NewColumnValues(1)
 		if err := rows.Scan(rowValues.ValuesPointers...); err != nil {
 			ch <- newCrc32ResultStruct(ret, err)
+			return
 		}
 		ret = append(ret, rowValues.StringColumn(0))
 	}
 	err = rows.Err()
 	if err != nil {
 		ch <- newCrc32ResultStruct(ret, err)
+		return
 	}
 	ch <- newCrc32ResultStruct(ret, err)
+	return
 }
 
 // DataChecksumByCount 比较源表和目标表的总记录数，如果IsSuperSetAsEqual为false则只有记录数相等才认为核平，否则源表记录数少于等于目标表则认为核平，返回是否核平以及是否需要继续核对

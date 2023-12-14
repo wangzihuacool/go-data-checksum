@@ -154,19 +154,14 @@ func (this *ChecksumContext) IterationTimeRangeQueryChecksum() (isChunkChecksumE
 		duration = time.Since(startTime)
 	}()
 
-	// 判断有序集subset是否superset的子集
-	subsetCheckFunc := func(subset []string, superset []string) bool {
-		startIndex := 0
-		for i := 0; i < len(subset); i++ {
-			founded := false
-			for j := startIndex; j < len(superset); j++ {
-				if subset[i] == superset[j] {
-					startIndex = j + 1
-					founded = true
-					break
-				}
-			}
-			if founded == false {
+	// 判断有序集subset是否superset的子集,使用哈希表(基于时间的排序同一时间数据可能顺序不一样)
+	subsetCheckFuncByHashMap := func(subset []string, superset []string) bool {
+		supersetMap := make(map[string]bool)
+		for _, elem := range superset {
+			supersetMap[elem] = true
+		}
+		for _, elem := range subset {
+			if _, founded := supersetMap[elem]; !founded {
 				return false
 			}
 		}
@@ -197,7 +192,7 @@ func (this *ChecksumContext) IterationTimeRangeQueryChecksum() (isChunkChecksumE
 	if reflect.DeepEqual(sourceResult, targetResult) {
 		return true, duration, nil
 	} else if checkLevel == 2 {
-		if isSuperset := subsetCheckFunc(sourceResult, targetResult); isSuperset == false {
+		if isSuperset := subsetCheckFuncByHashMap(sourceResult, targetResult); isSuperset == false {
 			return false, duration, nil
 		}
 		return true, duration, nil
