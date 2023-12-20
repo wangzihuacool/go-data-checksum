@@ -53,6 +53,11 @@ func (this *ChecksumContext) GetIteration() int64 {
 	return atomic.LoadInt64(&this.PerTableContext.Iteration)
 }
 
+// AddIteration 核对批次累加
+func (this *ChecksumContext) AddIteration() {
+	atomic.AddInt64(&this.PerTableContext.Iteration, 1)
+}
+
 // GetChunkSize 获取chunk大小
 func (this *ChecksumContext) GetChunkSize() int64 {
 	return atomic.LoadInt64(&this.Context.ChunkSize)
@@ -335,7 +340,7 @@ func (this *ChecksumContext) IterationQueryChecksum() (isChunkChecksumEqual bool
 		sourceResult, targetResult = sourceResultStruct.result, targetResultStruct.result
 	}
 
-	atomic.AddInt64(&this.PerTableContext.Iteration, 1)
+	// atomic.AddInt64(&this.PerTableContext.Iteration, 1)
 	if reflect.DeepEqual(sourceResult, targetResult) {
 		return true, duration, nil
 	} else if checkLevel == 2 {

@@ -219,16 +219,17 @@ func (this *ChecksumJob) ChecksumPerTable(baseContext *logic.BaseContext, tableC
 			// 增加重试机制
 			for i := 0; i < int(ChecksumContext.Context.DefaultNumRetries); i++ {
 				if i != 0 {
-					time.Sleep(3 * time.Second)
+					time.Sleep(1 * time.Second)
 					baseContext.Log.Debugf("IterationQueryChecksum [%s-%s] retry times %d of table pair: %s.%s => %s.%s .", ChecksumContext.ChecksumIterationRangeMinValues.AbstractValues(), ChecksumContext.ChecksumIterationRangeMaxValues.AbstractValues(), i, ChecksumContext.PerTableContext.SourceDatabaseName, ChecksumContext.PerTableContext.SourceTableName, ChecksumContext.PerTableContext.TargetDatabaseName, ChecksumContext.PerTableContext.TargetTableName)
 				} else {
 					baseContext.Log.Debugf("IterationQueryChecksum [%s-%s] of table pair: %s.%s => %s.%s .", ChecksumContext.ChecksumIterationRangeMinValues.AbstractValues(), ChecksumContext.ChecksumIterationRangeMaxValues.AbstractValues(), ChecksumContext.PerTableContext.SourceDatabaseName, ChecksumContext.PerTableContext.SourceTableName, ChecksumContext.PerTableContext.TargetDatabaseName, ChecksumContext.PerTableContext.TargetTableName)
 				}
 				isChunkChecksumEqual, duration, err = ChecksumContext.IterationQueryChecksum()
-				if err == nil {
+				if err == nil && isChunkChecksumEqual == true {
 					break
 				}
 			}
+			ChecksumContext.AddIteration()
 			if err != nil {
 				baseContext.ChecksumErrChan <- err
 				baseContext.ChecksumResChan <- false
@@ -313,16 +314,17 @@ func (this *ChecksumJob) ChecksumPerTableViaTimeColumn(baseContext *logic.BaseCo
 			// 增加重试机制
 			for i := 0; i < int(ChecksumContext.Context.DefaultNumRetries); i++ {
 				if i != 0 {
-					time.Sleep(3 * time.Second)
+					time.Sleep(1 * time.Second)
 					baseContext.Log.Debugf("IterationTimeRangeQueryChecksum [%s-%s] retry times %d of table pair: %s.%s => %s.%s .", ChecksumContext.ChecksumIterationRangeMinValues.AbstractValues(), ChecksumContext.ChecksumIterationRangeMaxValues.AbstractValues(), i, ChecksumContext.PerTableContext.SourceDatabaseName, ChecksumContext.PerTableContext.SourceTableName, ChecksumContext.PerTableContext.TargetDatabaseName, ChecksumContext.PerTableContext.TargetTableName)
 				} else {
 					baseContext.Log.Debugf("IterationTimeRangeQueryChecksum [%s-%s] of table pair: %s.%s => %s.%s .", ChecksumContext.ChecksumIterationRangeMinValues.AbstractValues(), ChecksumContext.ChecksumIterationRangeMaxValues.AbstractValues(), ChecksumContext.PerTableContext.SourceDatabaseName, ChecksumContext.PerTableContext.SourceTableName, ChecksumContext.PerTableContext.TargetDatabaseName, ChecksumContext.PerTableContext.TargetTableName)
 				}
 				isChunkChecksumEqual, duration, err = ChecksumContext.IterationTimeRangeQueryChecksum()
-				if err == nil {
+				if err == nil && isChunkChecksumEqual == true {
 					break
 				}
 			}
+			ChecksumContext.AddIteration()
 			if err != nil {
 				baseContext.ChecksumErrChan <- err
 				baseContext.ChecksumResChan <- false
@@ -442,7 +444,7 @@ func main() {
 	specifiedDatetimeRangeBegin := flag.String("specified-time-begin", "", "Specified begin time of time column to check.")
 	specifiedDatetimeRangeEnd := flag.String("specified-time-end", "", "Specified end time of time column to check.")
 	chunkSize := flag.Int64("chunk-size", 1000, "amount of rows to handle in each iteration (allowed range: 10-100,000)")
-	defaultRetries := flag.Int64("default-retries", 10, "Default number of retries for various operations before panicking")
+	defaultRetries := flag.Int64("default-retries", 5, "Default number of retries for various operations before panicking")
 	flag.BoolVar(&baseContext.IsSuperSetAsEqual, "is-superset-as-equal", false, "Shall we think that the records in target table is the superset of the source as equal? By default, we think the records are exactly equal as equal.")
 	flag.BoolVar(&baseContext.IgnoreRowCountCheck, "ignore-row-count-check", false, "Shall we ignore check by counting rows? Default: false")
 	flag.IntVar(&baseContext.ParallelThreads, "threads", 1, "Parallel threads of table checksum.")

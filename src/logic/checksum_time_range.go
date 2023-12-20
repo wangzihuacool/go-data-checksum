@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"sync/atomic"
 	"time"
 )
 
@@ -188,7 +187,7 @@ func (this *ChecksumContext) IterationTimeRangeQueryChecksum() (isChunkChecksumE
 		sourceResult, targetResult = sourceResultStruct.result, targetResultStruct.result
 	}
 
-	atomic.AddInt64(&this.PerTableContext.Iteration, 1)
+	// atomic.AddInt64(&this.PerTableContext.Iteration, 1)
 	if reflect.DeepEqual(sourceResult, targetResult) {
 		return true, duration, nil
 	} else if checkLevel == 2 {
