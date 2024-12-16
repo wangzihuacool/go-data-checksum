@@ -45,7 +45,7 @@ go --help
   -source-table-name string
         Source tables list separated by comma, eg: table1 or table1,table2.
   -source-table-regexp string
-        Source table names regular expression, eg: 'test_[0-9][0-9]\.test_20.*'
+        Source table names regular expression, eg: 'test_[0-9][0-9]\\.test_20.*'
   -specified-time-begin string
         Specified begin time of time column to check.
   -specified-time-column string
